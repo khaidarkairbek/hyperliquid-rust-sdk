@@ -88,6 +88,21 @@ pub(crate) struct SubscriptionSendData<'a> {
 }
 
 #[derive(Serialize)]
+pub struct PostSendData<'a> {
+    pub method: &'static str,
+    pub id: u64,
+    pub request: &'a PostRequest,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum PostRequest {
+    Info { payload: serde_json::Value },
+    Action { payload: serde_json::Value },
+}
+
+#[derive(Serialize)]
 pub(crate) struct Ping {
     method: &'static str,
 }

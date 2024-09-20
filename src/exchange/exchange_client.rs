@@ -16,16 +16,25 @@ use crate::{
     signature::sign_l1_action,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
-use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
+
+use crate::{
+    ClassTransfer, PostRequest, PostSendData, SpotSend, SpotUser, VaultTransfer, Withdraw3,
+};
 use ethers::{
     abi::AbiEncode,
     signers::{LocalWallet, Signer},
     types::{Signature, H160, H256},
 };
+use futures_util::stream::SplitSink;
+use futures_util::SinkExt;
 use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::{net::TcpStream, sync::Mutex};
+use tokio_tungstenite::tungstenite::protocol;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
@@ -385,6 +394,59 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
         self.post(action, signature, timestamp).await
+    }
+
+    pub async fn ws_bulk_order(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        wallet: Option<&LocalWallet>,
+        writer: Arc<
+            Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>,
+        >,
+    ) -> Result<()> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let mut transformed_orders = vec![];
+
+        for order in orders {
+            transformed_orders.push(order.convert(&self.coin_to_asset)?);
+        }
+
+        let action = Actions::Order(BulkOrder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        let payload = serde_json::to_string(&PostSendData {
+            method: "post",
+            id: 256,
+            request: &PostRequest::Action {
+                payload: serde_json::to_value(ExchangePayload {
+                    action,
+                    signature,
+                    nonce: timestamp,
+                    vault_address: self.vault_address,
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))?,
+            },
+        })
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        debug!("Sending request {payload:?}");
+
+        let mut writer_locked = writer.lock().await;
+        writer_locked
+            .send(protocol::Message::Text(payload))
+            .await
+            .map_err(|e| Error::Websocket(e.to_string()))?;
+
+        Ok(())
     }
 
     pub async fn cancel(
