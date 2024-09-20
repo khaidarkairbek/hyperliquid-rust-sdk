@@ -39,7 +39,8 @@ pub struct WsManager {
     stop_flag: Arc<AtomicBool>,
     reader_handle: Option<JoinHandle<()>>,
     ping_handle: Option<JoinHandle<()>>,
-    writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
+    pub writer:
+        Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     subscriptions: Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     subscription_id: u32,
     subscription_identifiers: HashMap<u32, String>,
