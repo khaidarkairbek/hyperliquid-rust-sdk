@@ -35,7 +35,7 @@ struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
     subscription_id: u32,
 }
-pub(crate) struct WsManager {
+pub struct WsManager {
     stop_flag: Arc<AtomicBool>,
     reader_handle: Option<JoinHandle<()>>,
     ping_handle: Option<JoinHandle<()>>,
