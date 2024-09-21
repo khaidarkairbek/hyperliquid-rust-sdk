@@ -60,6 +60,7 @@ pub enum Subscription {
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
     Notification { user: H160 },
+    Post,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -309,6 +310,10 @@ impl WsManager {
                 .map_err(|e| Error::JsonParse(e.to_string()))?
         {
             "orderUpdates".to_string()
+        } else if let Subscription::Post = serde_json::from_str::<Subscription>(&identifier)
+            .map_err(|e| Error::JsonParse(e.to_string()))?
+        {
+            "post".to_string()
         } else {
             identifier.clone()
         };
@@ -320,7 +325,7 @@ impl WsManager {
             return Err(Error::UserEvents);
         }
 
-        if subscriptions.is_empty() {
+        if subscriptions.is_empty() && !identifier_entry.eq("post") {
             let payload = serde_json::to_string(&SubscriptionSendData {
                 method: "subscribe",
                 subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
