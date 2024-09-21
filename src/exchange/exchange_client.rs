@@ -28,6 +28,7 @@ use ethers::{
 use futures_util::stream::SplitSink;
 use futures_util::SinkExt;
 use log::debug;
+use rand::Rng;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -403,7 +404,7 @@ impl ExchangeClient {
         writer: Arc<
             Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>,
         >,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
 
@@ -422,10 +423,11 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let payload_id: u64 = rand::thread_rng().gen();
 
         let payload = serde_json::to_string(&PostSendData {
             method: "post",
-            id: 256,
+            id: payload_id,
             request: &PostRequest::Action {
                 payload: serde_json::to_value(ExchangePayload {
                     action,
@@ -446,7 +448,7 @@ impl ExchangeClient {
             .await
             .map_err(|e| Error::Websocket(e.to_string()))?;
 
-        Ok(())
+        Ok(payload_id)
     }
 
     pub async fn cancel(
