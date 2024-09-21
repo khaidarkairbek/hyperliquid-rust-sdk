@@ -2,6 +2,8 @@ use ethers::types::H160;
 use serde::Deserialize;
 use std::collections::HashMap;
 
+use crate::ExchangeResponseStatus;
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Trade {
     pub coin: String,
@@ -270,4 +272,18 @@ pub struct SpotGenesis {
 #[derive(Deserialize, Clone, Debug)]
 pub struct NotificationData {
     pub notification: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct PostResponseData {
+    pub id: u64,
+    pub response: Response,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
+pub enum Response {
+    Info { payload: serde_json::Value },
+    Action { payload: ExchangeResponseStatus },
 }

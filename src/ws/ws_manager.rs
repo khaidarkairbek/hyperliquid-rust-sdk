@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
+    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, PostResponse, Trades, User},
     Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
@@ -80,6 +80,7 @@ pub enum Message {
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
     Notification(Notification),
     Pong,
+    Post(PostResponse),
 }
 
 #[derive(Serialize)]
@@ -211,6 +212,7 @@ impl WsManager {
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
+            Message::Post(_) => Ok("post".to_string()),
         }
     }
 
