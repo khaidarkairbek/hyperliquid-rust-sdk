@@ -103,6 +103,13 @@ pub struct BulkOrder {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Modify {
+    pub oid: u64,
+    pub order: OrderRequest,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkCancel {
     pub cancels: Vec<CancelRequest>,
 }
