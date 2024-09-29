@@ -110,6 +110,12 @@ pub struct Modify {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct BulkModify {
+    pub modifies: Vec<Modify>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BulkCancel {
     pub cancels: Vec<CancelRequest>,
 }

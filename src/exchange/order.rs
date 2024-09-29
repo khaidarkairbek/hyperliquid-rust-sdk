@@ -90,6 +90,11 @@ pub struct ClientOrderRequest {
     pub order_type: ClientOrder,
 }
 
+pub struct ClientModifyRequest {
+    pub oid: u64,
+    pub order: ClientOrderRequest,
+}
+
 impl ClientOrderRequest {
     pub(crate) fn convert(self, coin_to_asset: &HashMap<String, u32>) -> Result<OrderRequest> {
         let order_type = match self.order_type {

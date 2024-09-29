@@ -2,11 +2,11 @@ use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, BulkCancel, BulkOrder, Modify, SetReferrer, UpdateIsolatedMargin,
-            UpdateLeverage, UsdSend,
+            ApproveAgent, BulkCancel, BulkModify, BulkOrder, Modify, SetReferrer,
+            UpdateIsolatedMargin, UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
-        ClientCancelRequest, ClientOrderRequest,
+        ClientCancelRequest, ClientModifyRequest, ClientOrderRequest,
     },
     helpers::{generate_random_key, next_nonce, uuid_to_hex_string},
     info::info_client::InfoClient,
@@ -68,6 +68,7 @@ pub enum Actions {
     Order(BulkOrder),
     Cancel(BulkCancel),
     Modify(Modify),
+    BatchModify(BulkModify),
     CancelByCloid(BulkCancelCloid),
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
@@ -366,18 +367,31 @@ impl ExchangeClient {
 
     pub async fn modify(
         &self,
-        oid: u64,
-        order: ClientOrderRequest,
+        modify: ClientModifyRequest,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_modify(vec![modify], wallet).await
+    }
+
+    pub async fn bulk_modify(
+        &self,
+        modifies: Vec<ClientModifyRequest>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
 
-        let transformed_order = order.convert(&self.coin_to_asset)?;
+        let mut transformed_modifies = Vec::new();
 
-        let action = Actions::Modify(Modify {
-            oid,
-            order: transformed_order,
+        for modify in modifies {
+            transformed_modifies.push(Modify {
+                oid: modify.oid,
+                order: modify.order.convert(&self.coin_to_asset)?,
+            });
+        }
+
+        let action = Actions::BatchModify(BulkModify {
+            modifies: transformed_modifies,
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
@@ -389,8 +403,18 @@ impl ExchangeClient {
 
     pub async fn ws_modify(
         &self,
-        oid: u64,
-        order: ClientOrderRequest,
+        modify: ClientModifyRequest,
+        wallet: Option<&LocalWallet>,
+        writer: Arc<
+            Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>,
+        >,
+    ) -> Result<u64> {
+        self.ws_bulk_modify(vec![modify], wallet, writer).await
+    }
+
+    pub async fn ws_bulk_modify(
+        &self,
+        modifies: Vec<ClientModifyRequest>,
         wallet: Option<&LocalWallet>,
         writer: Arc<
             Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>,
@@ -399,11 +423,17 @@ impl ExchangeClient {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
 
-        let transformed_order = order.convert(&self.coin_to_asset)?;
+        let mut transformed_modifies = Vec::new();
 
-        let action = Actions::Modify(Modify {
-            oid,
-            order: transformed_order,
+        for modify in modifies {
+            transformed_modifies.push(Modify {
+                oid: modify.oid,
+                order: modify.order.convert(&self.coin_to_asset)?,
+            });
+        }
+
+        let action = Actions::BatchModify(BulkModify {
+            modifies: transformed_modifies,
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
