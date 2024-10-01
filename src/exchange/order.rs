@@ -46,11 +46,11 @@ pub struct OrderRequest {
     #[serde(rename = "c", alias = "cloid", skip_serializing_if = "Option::is_none")]
     pub cloid: Option<String>,
 }
-
+#[derive(Debug, Clone)]
 pub struct ClientLimit {
     pub tif: String,
 }
-
+#[derive(Debug, Clone)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
@@ -76,10 +76,13 @@ pub struct MarketCloseParams<'a> {
     pub wallet: Option<&'a LocalWallet>,
 }
 
+#[derive(Debug, Clone)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
+
+#[derive(Clone, Debug)]
 pub struct ClientOrderRequest {
     pub asset: String,
     pub is_buy: bool,
